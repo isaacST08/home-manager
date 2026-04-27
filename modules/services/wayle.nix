@@ -88,6 +88,10 @@ in
         wallpaper.engine-enabled = false;
         styling.theme-provider = "wayle";
       } cfg.settings;
+
+      # Determine if wayle is being configured via nix, or if the user will be
+      # using wayle's builtin settings dialog.
+      nix_configured = cfg.settings != { };
     in
     {
       assertions = [
@@ -96,19 +100,28 @@ in
 
       home.packages = (
         [ cfg.package ]
-        # Install the appropriate theme-provider, if set.
-        ++ (lists.optional (
-          cfg.autoInstallDependencies
-          && elem settings_with_fallbacks.styling.theme-provider [
-            "matugen"
-            "wallust"
-            "pywal"
-          ]
-        ) pkgs.${settings_with_fallbacks.styling.theme-provider})
+        # Install dependencies.
+        ++ (lists.optionals (cfg.autoInstallDependencies) (
+          # If wayle is not being configured in via nix, install all dependencies.
+          if (!nix_configured) then
+            with pkgs;
+            [
+              matugen
+              wallust
+              pywal
+            ]
+          # Otherwise, only install the appropriate theme-provider, if set.
+          else
+            (lists.optional (elem settings_with_fallbacks.styling.theme-provider [
+              "matugen"
+              "wallust"
+              "pywal"
+            ]) pkgs.${settings_with_fallbacks.styling.theme-provider})
+        ))
       );
 
       # Main config file.
-      xdg.configFile."wayle/config.toml" = mkIf (cfg.settings != { }) {
+      xdg.configFile."wayle/config.toml" = mkIf nix_configured {
         source = tomlFormat.generate "wayle-config" cfg.settings;
       };
 
@@ -134,7 +147,7 @@ in
 
       # Wallpaper-engine dependency.
       services.awww.enable = mkIf (
-        cfg.autoInstallDependencies && settings_with_fallbacks.wallpaper.engine-enabled
+        cfg.autoInstallDependencies && (settings_with_fallbacks.wallpaper.engine-enabled || !nix_configured)
       ) (lib.mkDefault true);
     }
   );

@@ -1,4 +1,7 @@
-{ config, ... }:
+{ config, pkgs, ... }:
+let
+  inherit ((import ./lib.nix { inherit config pkgs; }).asserts) awwwInstalled packageInstalled;
+in
 {
   services.wayle = {
     enable = true;
@@ -43,4 +46,11 @@
       "home-files/.config/wayle/config.toml" \
       ${./basic-config.toml}
   '';
+
+  assertions = [
+    (awwwInstalled false)
+    (packageInstalled "matugen" false)
+    (packageInstalled "wallust" false)
+    (packageInstalled "pywal" false)
+  ];
 }
